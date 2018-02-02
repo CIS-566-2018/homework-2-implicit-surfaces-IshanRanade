@@ -10,7 +10,7 @@ out vec4 out_Col;
 float EPSILON = 0.01;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 100.0;
-int MAX_MARCHING_STEPS = 32;
+int MAX_MARCHING_STEPS = 16;
 
 float udRoundBox( vec3 p, vec3 b, float r )
 {
@@ -60,6 +60,13 @@ float smin( float a, float b, float k )
   return mix( b, a, h ) - k*h*(1.0-h);
 }
 
+
+float sdCappedCylinder( vec3 p, vec2 h )
+{
+  vec2 d = abs(vec2(length(p.xz),p.y)) - h;
+  return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
 float opBlend( vec3 p )
 {
   float d1 = sphereSDF(p);
@@ -74,15 +81,34 @@ float opBlend( vec3 p )
 
 
 
+mat4 rotationMatrix(vec3 axis, float angle)
+{
+    axis = normalize(axis);
+    float s = sin(radians(angle));
+    float c = cos(radians(angle));
+    float oc = 1.0 - c;
+    
+    return mat4(oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,  0.0,
+                oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,  0.0,
+                oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c,           0.0,
+                0.0,                                0.0,                                0.0,                                1.0);
+}
 
+mat4 translationMatrix(vec3 translation)
+{
+  return mat4(1,0,0,0,
+              0,1,0,0,
+              0,0,1,0,
+              translation.x, translation.y, translation.z, 1);
+}
 
 struct Data {
   float SDV;
   vec3 color;
 };
 
-Data object1(vec3 p) {
-  mat4 m = mat4(vec4(1,0,0,0), vec4(0,1,0,0), vec4(0,0,1,0), vec4(-9,-2,-3,1));
+Data machine(vec3 p) {
+  mat4 m = mat4(vec4(1,0,0,0), vec4(0,1,0,0), vec4(0,0,1,0), vec4(-12,-3,-5,1));
   float scale = 5.0;
   vec3 q = vec3(inverse(m)*vec4(p,1));
   return Data(cubeSDF(q/scale) * scale, vec3(0,0,5));
@@ -90,6 +116,31 @@ Data object1(vec3 p) {
 
 Data object2(vec3 p) {
   return Data(sphereSDF(p), vec3(1,1,1));
+}
+
+Data leverBase(vec3 p) {
+  mat4 m = translationMatrix(vec3(-7,-2,-2));
+  float scale = 0.1;
+  vec3 q = vec3(inverse(m)*vec4(p,1));
+  return Data(udRoundBox(q, vec3(0.1,1.0,0.5), 0.1f), vec3(0,1,0));
+}
+
+Data lever(vec3 p) {
+  mat4 m = translationMatrix(vec3(-6.9,-2,-2)) * 
+            rotationMatrix(vec3(0,0,1), 55.0f + 45.f * sin(fs_Time/100.0f)) * 
+            translationMatrix(vec3(0,1,0));
+  float scale = 0.1;
+  vec3 q = vec3(inverse(m)*vec4(p,1));
+  return Data(sdCappedCylinder(q/scale, vec2(1,10)) * scale, vec3(2,0,0));
+}
+
+Data leverTip(vec3 p) {
+  mat4 m = translationMatrix(vec3(-6.9,-2,-2)) * 
+          rotationMatrix(vec3(0,0,1), 55.0f + 45.f * sin(fs_Time/100.0f)) * 
+          translationMatrix(vec3(0,1,0));
+  float scale = 0.1;
+  vec3 q = vec3(inverse(m)*vec4(p,1));
+  return Data(sdCappedCylinder(q/scale, vec2(1,10)) * scale, vec3(2,0,0));
 }
 
 Data sceneSDF(vec3 samplePoint) {
@@ -103,15 +154,31 @@ Data sceneSDF(vec3 samplePoint) {
   // First object
   Data bestData = Data(1000000.f, vec3(0,0,0));
 
-  Data object1Data = object1(samplePoint);
-  if(object1Data.SDV < bestData.SDV) {
-    bestData = object1Data;
+  Data machineData = machine(samplePoint);
+  if(machineData.SDV < bestData.SDV) {
+    bestData = machineData;
   }
 
-  Data object2Data = object2(samplePoint);
-  if(object2Data.SDV < bestData.SDV) {
-    bestData = object2Data;
+  Data leverBaseData = leverBase(samplePoint);
+  if(leverBaseData.SDV < bestData.SDV) {
+    bestData = leverBaseData;
   }
+
+  Data leverData = lever(samplePoint);
+  if(leverData.SDV < bestData.SDV) {
+    bestData = leverData;
+  }
+
+  leverData = lever(samplePoint);
+  /*if(leverData.SDV < bestData.SDV) {
+    bestData = leverData;
+  }*/
+
+  /*Data leverTipData = leverTip(samplePoint);
+  if(leverTipData.SDV < bestData.SDV) {
+    bestData = leverTipData;
+  }*/
+
   return bestData;
 }
 
@@ -190,7 +257,7 @@ mat4 viewMatrix(vec3 eye, vec3 center, vec3 up) {
 
 void main() {
 	vec3 dir = rayDirection(45.0, vec2(fs_Resolution.x,fs_Resolution.y), vec2(gl_FragCoord.x, gl_FragCoord.y));
-  vec3 eye = vec3(8.0, 5.0, 7.0);
+  vec3 eye = vec3(8.0, 5.0, 30.0);
   vec3 lightPosition = vec3(-10,-10,-15);
 
   mat4 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
