@@ -62,12 +62,26 @@ float opBlend( vec3 p )
   return smin( d1, d2, 1.0f );
 }
 
+float object1(vec3 p) {
+  mat4 m = mat4(vec4(1,0,0,0), vec4(0,1,0,0), vec4(0,0,1,0), vec4(-9,-2,-3,1));
+  float scale = 5.0;
+  vec3 q = vec3(inverse(m)*vec4(p,1));
+  return cubeSDF(q/scale) * scale;
+}
+
 float sceneSDF(vec3 samplePoint) {
   //return min(sphereSDF(samplePoint), udRoundBox(samplePoint, vec3(0,0,0), 2.0f));
   //return udRoundBox(samplePoint, vec3(0,-1,0), 1.5f);
   //return sdTorus82SDF(samplePoint, vec2(0.1,0.9));
   //return sdTorus82SDF(samplePoint, vec2(1,0.5));
-  return opBlend(samplePoint);
+  //return opBlend(samplePoint);
+  //return sphereSDF(samplePoint);
+
+  // First object
+  return object1(samplePoint);
+
+
+
 }
 
 float raymarch(vec3 eye, vec3 marchingDirection, float start, float end) {
