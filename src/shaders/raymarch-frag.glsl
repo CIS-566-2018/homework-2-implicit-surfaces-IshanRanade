@@ -17,6 +17,11 @@ float udRoundBox( vec3 p, vec3 b, float r )
   return length(max(abs(p)-b,0.0))-r;
 }
 
+float udBox( vec3 p, vec3 b )
+{
+  return length(max(abs(p)-b,0.0));
+}
+
 float sdTorus82SDF( vec3 p, vec2 t )
 {
   vec2 q = vec2(length(p.xz)-t.x,p.y);
@@ -83,6 +88,10 @@ Data object1(vec3 p) {
   return Data(cubeSDF(q/scale) * scale, vec3(0,0,5));
 }
 
+Data object2(vec3 p) {
+  return Data(sphereSDF(p), vec3(1,1,1));
+}
+
 Data sceneSDF(vec3 samplePoint) {
   //return min(sphereSDF(samplePoint), udRoundBox(samplePoint, vec3(0,0,0), 2.0f));
   //return udRoundBox(samplePoint, vec3(0,-1,0), 1.5f);
@@ -92,10 +101,18 @@ Data sceneSDF(vec3 samplePoint) {
   //return sphereSDF(samplePoint);
 
   // First object
-  return object1(samplePoint);
+  Data bestData = Data(1000000.f, vec3(0,0,0));
 
+  Data object1Data = object1(samplePoint);
+  if(object1Data.SDV < bestData.SDV) {
+    bestData = object1Data;
+  }
 
-
+  Data object2Data = object2(samplePoint);
+  if(object2Data.SDV < bestData.SDV) {
+    bestData = object2Data;
+  }
+  return bestData;
 }
 
 Data raymarch(vec3 eye, vec3 marchingDirection, float start, float end) {
