@@ -62,14 +62,28 @@ float opBlend( vec3 p )
   return smin( d1, d2, 1.0f );
 }
 
-float object1(vec3 p) {
+
+
+
+
+
+
+
+
+
+struct Data {
+  float SDV;
+  vec3 color;
+};
+
+Data object1(vec3 p) {
   mat4 m = mat4(vec4(1,0,0,0), vec4(0,1,0,0), vec4(0,0,1,0), vec4(-9,-2,-3,1));
   float scale = 5.0;
   vec3 q = vec3(inverse(m)*vec4(p,1));
-  return cubeSDF(q/scale) * scale;
+  return Data(cubeSDF(q/scale) * scale, vec3(0,0,5));
 }
 
-float sceneSDF(vec3 samplePoint) {
+Data sceneSDF(vec3 samplePoint) {
   //return min(sphereSDF(samplePoint), udRoundBox(samplePoint, vec3(0,0,0), 2.0f));
   //return udRoundBox(samplePoint, vec3(0,-1,0), 1.5f);
   //return sdTorus82SDF(samplePoint, vec2(0.1,0.9));
@@ -84,19 +98,20 @@ float sceneSDF(vec3 samplePoint) {
 
 }
 
-float raymarch(vec3 eye, vec3 marchingDirection, float start, float end) {
+Data raymarch(vec3 eye, vec3 marchingDirection, float start, float end) {
   float depth = start;
   for (int i = 0; i < MAX_MARCHING_STEPS; i++) {
-    float dist = sceneSDF(eye + depth * marchingDirection);
+    Data data = sceneSDF(eye + depth * marchingDirection);
+    float dist = data.SDV;
     if (dist < EPSILON) {
-      return depth;
+      return Data(depth, data.color);
     }
     depth += dist;
     if (depth >= end) {
-        return end;
+        return Data(end, vec3(0,0,0));
     }
   }
-  return end;
+  return Data(end, vec3(0,0,0));
 }
 
 vec3 rayDirection(float fieldOfView, vec2 size, vec2 fragCoord) {
@@ -108,9 +123,9 @@ vec3 rayDirection(float fieldOfView, vec2 size, vec2 fragCoord) {
 vec3 estimateNormal(vec3 p) {
   float epsilon = 0.01;
   return normalize(vec3(
-      sceneSDF(vec3(p.x + epsilon, p.y, p.z)) - sceneSDF(vec3(p.x - epsilon, p.y, p.z)),
-      sceneSDF(vec3(p.x, p.y + epsilon, p.z)) - sceneSDF(vec3(p.x, p.y - epsilon, p.z)),
-      sceneSDF(vec3(p.x, p.y, p.z  + epsilon)) - sceneSDF(vec3(p.x, p.y, p.z - epsilon))
+      sceneSDF(vec3(p.x + epsilon, p.y, p.z)).SDV - sceneSDF(vec3(p.x - epsilon, p.y, p.z)).SDV,
+      sceneSDF(vec3(p.x, p.y + epsilon, p.z)).SDV - sceneSDF(vec3(p.x, p.y - epsilon, p.z)).SDV,
+      sceneSDF(vec3(p.x, p.y, p.z  + epsilon)).SDV - sceneSDF(vec3(p.x, p.y, p.z - epsilon)).SDV
   ));
 }
 
@@ -133,8 +148,8 @@ vec3 phongContribForLight(vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye, vec
   return lightIntensity * (k_d * dotLN + k_s * pow(dotRV, alpha));
 }
 
-vec3 phongIllumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye) {
-  const vec3 ambientLight = 0.5 * vec3(1.0, 1.0, 1.0);
+vec3 phongIllumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye, vec3 diffuse) {
+  vec3 ambientLight = 0.5 * diffuse;
   vec3 color = ambientLight * k_a;
   
   vec3 light1Pos = vec3(4.0 * sin(fs_Time/500.0f), 2.0, 4.0 * cos(fs_Time/500.0f));
@@ -164,7 +179,8 @@ void main() {
   mat4 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
   vec3 worldDir = (viewToWorld * vec4(dir, 0.0)).xyz;
 
-  float dist = raymarch(eye, worldDir, MIN_DIST, MAX_DIST);
+  Data data = raymarch(eye, worldDir, MIN_DIST, MAX_DIST);
+  float dist = data.SDV;
   
   if (dist > MAX_DIST - EPSILON) {
     out_Col = vec4(0,0,0,1.0);
@@ -178,7 +194,7 @@ void main() {
   vec3 K_s = vec3(1.0, 1.0, 1.0);
   float shininess = 10.0;
   
-  vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye);
+  vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye, data.color);
 
   out_Col = vec4(color, 1.0);
 }
