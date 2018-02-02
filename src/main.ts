@@ -14,6 +14,8 @@ const controls = {
 
 let screenQuad: Square;
 
+let startTime: number;
+
 function main() {
   // Initial display for framerate
   const stats = Stats();
@@ -56,6 +58,8 @@ function main() {
     new Shader(gl.FRAGMENT_SHADER, require('./shaders/raymarch-frag.glsl')),
   ]);
 
+  startTime = Date.now();
+
   // This function will be called every frame
   function tick() {
     camera.update();
@@ -67,6 +71,7 @@ function main() {
     // TODO: get / calculate relevant uniforms to send to shader here
     // TODO: send uniforms to shader
     raymarchShader.setResolution(vec2.fromValues(canvas.width, canvas.height));
+    raymarchShader.setTime(Date.now() - startTime);
 
     // March!
     raymarchShader.draw(screenQuad);
