@@ -44,3 +44,11 @@ We would suggest editing your project with Visual Studio Code https://code.visua
 
 ## Resources
 - [Lecture slides](https://docs.google.com/presentation/d/1W5KWvkT1tscRG8x5tSfKXBRx9EGTZ-jVsOhIlfhJQLQ/edit?usp=sharing) (see the last two slides)
+
+## Description
+
+I created a scene of a lever and a snowman, with the lever activating the snowman's head.  The animation includes the lever being pulled up and down and the hat increasing and decreasing in size.  I used a lot of the sined distance functions described in 
+IQ's blogs, including the union, intersection, and domain repetition algorithms.  I also included an FBM background and some moving spheres.  Here
+is a screenshot of one instance of the animation.
+
+![](shot1.png)
