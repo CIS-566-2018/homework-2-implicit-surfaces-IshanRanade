@@ -51,4 +51,4 @@ I created a scene of a lever and a snowman, with the lever activating the snowma
 IQ's blogs, including the union, intersection, and domain repetition algorithms.  I also included an FBM background and some moving spheres.  Here
 is a screenshot of one instance of the animation.
 
-![](shot1.png)
+![](shot1.PNG)
