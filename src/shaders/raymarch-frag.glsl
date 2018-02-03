@@ -10,7 +10,7 @@ out vec4 out_Col;
 float EPSILON = 0.01;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 100.0;
-int MAX_MARCHING_STEPS = 16;
+int MAX_MARCHING_STEPS = 24;
 
 float udRoundBox( vec3 p, vec3 b, float r )
 {
@@ -108,10 +108,16 @@ struct Data {
 };
 
 Data machine(vec3 p) {
-  mat4 m = mat4(vec4(1,0,0,0), vec4(0,1,0,0), vec4(0,0,1,0), vec4(-12,-3,-5,1));
-  float scale = 5.0;
+  mat4 m = mat4(vec4(1,0,0,0), vec4(0,1,0,0), vec4(0,0,1,0), vec4(-13.8,-3,-15,1));
+  float scale = 6.0;
   vec3 q = vec3(inverse(m)*vec4(p,1));
-  return Data(cubeSDF(q/scale) * scale, vec3(0,0,5));
+
+  mat4 m2 = mat4(vec4(1,0,0,0), vec4(0,1,0,0), vec4(0,0,1,0), vec4(1,1,1,1));
+  float scale2 = 1.0;
+  vec3 q2 = vec3(inverse(m2)*vec4(p,1));
+
+  float t = min(sphereSDF(q2/scale2), udBox(q/scale, vec3(1.1,1.0,3.0)));
+  return Data(t * scale, vec3(3,0,5));
 }
 
 Data object2(vec3 p) {
@@ -127,7 +133,7 @@ Data leverBase(vec3 p) {
 
 Data lever(vec3 p) {
   mat4 m = translationMatrix(vec3(-6.9,-2,-2)) * 
-            rotationMatrix(vec3(0,0,1), 55.0f + 45.f * sin(fs_Time/100.0f)) * 
+            rotationMatrix(vec3(0,0,1), 55.0f + 45.f * 2.0 * clamp(sin(fs_Time/200.0f),0.f, 1.f)) * 
             translationMatrix(vec3(0,1,0));
   float scale = 0.1;
   vec3 q = vec3(inverse(m)*vec4(p,1));
@@ -135,12 +141,12 @@ Data lever(vec3 p) {
 }
 
 Data leverTip(vec3 p) {
-  mat4 m = translationMatrix(vec3(-6.9,-2,-2)) * 
-          rotationMatrix(vec3(0,0,1), 55.0f + 45.f * sin(fs_Time/100.0f)) * 
-          translationMatrix(vec3(0,1,0));
-  float scale = 0.1;
+  mat4 m = translationMatrix(vec3(-5,-1,-0.3)) * 
+          rotationMatrix(vec3(0,0,1), 55.0f + 45.f * 2.0 * clamp(sin(fs_Time/200.0f),0.f, 1.f)) * 
+          translationMatrix(vec3(0,2,0));
+  float scale = 0.5;
   vec3 q = vec3(inverse(m)*vec4(p,1));
-  return Data(sdCappedCylinder(q/scale, vec2(1,10)) * scale, vec3(2,0,0));
+  return Data(sphereSDF(q/scale) * scale, vec3(0,0,5));
 }
 
 Data sceneSDF(vec3 samplePoint) {
@@ -170,14 +176,14 @@ Data sceneSDF(vec3 samplePoint) {
   }
 
   leverData = lever(samplePoint);
-  /*if(leverData.SDV < bestData.SDV) {
+  if(leverData.SDV < bestData.SDV) {
     bestData = leverData;
-  }*/
+  }
 
-  /*Data leverTipData = leverTip(samplePoint);
+  Data leverTipData = leverTip(samplePoint);
   if(leverTipData.SDV < bestData.SDV) {
     bestData = leverTipData;
-  }*/
+  }
 
   return bestData;
 }
@@ -256,11 +262,11 @@ mat4 viewMatrix(vec3 eye, vec3 center, vec3 up) {
 }
 
 void main() {
-	vec3 dir = rayDirection(45.0, vec2(fs_Resolution.x,fs_Resolution.y), vec2(gl_FragCoord.x, gl_FragCoord.y));
-  vec3 eye = vec3(8.0, 5.0, 30.0);
-  vec3 lightPosition = vec3(-10,-10,-15);
+	vec3 dir = rayDirection(50.0, vec2(fs_Resolution.x,fs_Resolution.y), vec2(gl_FragCoord.x, gl_FragCoord.y));
+  vec3 eye = vec3(7.0, 5.0, 12.0);
+  vec3 lightPosition = vec3(-10,-8,-18);
 
-  mat4 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+  mat4 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, -2.0), vec3(0.0, 1.0, 0.0));
   vec3 worldDir = (viewToWorld * vec4(dir, 0.0)).xyz;
 
   Data data = raymarch(eye, worldDir, MIN_DIST, MAX_DIST);
@@ -280,5 +286,9 @@ void main() {
   
   vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye, data.color);
 
-  out_Col = vec4(color, 1.0);
+  float fog = 1.0f / (1.0f + dist * dist * 0.1f);
+
+  out_Col = vec4(fog * 90.f * color, 1.0f);
+
+  //out_Col = vec4(1,1,0,1);
 }
