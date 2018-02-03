@@ -10,7 +10,7 @@ out vec4 out_Col;
 float EPSILON = 0.01;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 100.0;
-int MAX_MARCHING_STEPS = 32;
+int MAX_MARCHING_STEPS = 64;
 
 float rand(const vec2 n) {
         return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
@@ -428,6 +428,28 @@ Data raymarch(vec3 eye, vec3 marchingDirection, float start, float end) {
   return Data(end, vec3(0,0,0));
 }
 
+Data sceneSDF2(vec3 p) {
+  vec3 c = vec3(10,10,10) + vec3(5,4,5) * sin(fs_Time/1000.f) + vec3(1,1,1) * cos(fs_Time/2000.f);
+  vec3 q = mod(p,c)-0.5*c;
+  return Data(sphereSDF(q), vec3(0,1,1));
+}
+
+Data specialraymarch(vec3 eye, vec3 marchingDirection, float start, float end) {
+  float depth = start;
+  for (int i = 0; i < MAX_MARCHING_STEPS; i++) {
+    Data data = sceneSDF2(eye + depth * marchingDirection);
+    float dist = data.SDV;
+    if (dist < EPSILON) {
+      return Data(depth, data.color);
+    }
+    depth += dist;
+    if (depth >= end) {
+        return Data(end, vec3(0,0,0));
+    }
+  }
+  return Data(end, vec3(0,0,0));
+}
+
 vec3 rayDirection(float fieldOfView, vec2 size, vec2 fragCoord) {
     vec2 xy = fragCoord - size / 2.0;
     float z = size.y / tan(radians(fieldOfView) / 2.0);
@@ -542,6 +564,27 @@ void main() {
   float dist = data.SDV;
   
   if (dist > MAX_DIST - EPSILON) {
+    data = specialraymarch(eye, worldDir, MIN_DIST, MAX_DIST);
+    dist = data.SDV;
+
+    if (dist < MAX_DIST - EPSILON) {
+        vec3 p = eye + dist * worldDir;
+  
+      vec3 K_a = vec3(0.5, 0.5, 0.5);
+      vec3 K_d = vec3(0.7, 0.2, 0.2);
+      vec3 K_s = vec3(1.0, 1.0, 1.0);
+      float shininess = 10.0;
+      
+      vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye, data.color);
+
+      float fog = 1.0f / (1.0f + dist * dist * 0.1f);
+
+      out_Col = vec4(fog * 90.f * color, 1.0f);
+
+      return;
+    }
+
+
     float f = nestedNoise(gl_FragCoord.xy / fs_Resolution);
     vec3 color = vec3(f,f,f);
     out_Col = vec4(color,1.0);
